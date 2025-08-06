@@ -1,0 +1,77 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug sync_caldav.py",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/sync_caldav.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "args": [],
+            "justMyCode": true,
+            "python": "${workspaceFolder}/venv/bin/python"
+        },
+        {
+            "name": "Debug dingtalk_events_final.py",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/dingtalk_events_final.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "args": [],
+            "justMyCode": true,
+            "python": "${workspaceFolder}/venv/bin/python"
+        },
+        {
+            "name": "Debug caldav_hybrid_sync.py",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/caldav_hybrid_sync.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "args": [],
+            "justMyCode": true,
+            "python": "${workspaceFolder}/venv/bin/python"
+        },
+        {
+            "name": "Debug sync_tencent.py",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/sync_tencent.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "args": [],
+            "justMyCode": true,
+            "python": "${workspaceFolder}/venv/bin/python"
+        },
+        {
+            "name": "Debug test_mock.py",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/test_mock.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "args": [],
+            "justMyCode": true,
+            "python": "${workspaceFolder}/venv/bin/python"
+        },
+        {
+            "name": "Debug Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "args": [],
+            "justMyCode": true,
+            "python": "${workspaceFolder}/venv/bin/python"
+        }
+    ]
+}

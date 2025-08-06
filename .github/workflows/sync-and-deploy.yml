@@ -1,0 +1,267 @@
+name: CalDAV 同步和 GitHub Pages 部署
+
+on:
+  # 定时执行 - 每天早上8点和晚上8点（北京时间）
+  schedule:
+    - cron: '0 0 * * *'    # UTC 00:00 = 北京时间 08:00
+    - cron: '0 12 * * *'   # UTC 12:00 = 北京时间 20:00
+
+  # 手动触发
+  workflow_dispatch:
+    inputs:
+      sync_type:
+        description: '同步类型'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - dingtalk
+          - tencent
+      cleanup_days:
+        description: '清理多少天前的临时文件'
+        required: false
+        default: '7'
+        type: string
+
+  # 推送到main分支时触发（仅用于测试工作流）
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/**'
+      - '*.py'
+      - 'requirements.txt'
+
+jobs:
+  sync-and-deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+
+    - name: 设置 Python 环境
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        cache: 'pip'
+
+    - name: 安装依赖
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: 创建环境配置文件
+      run: |
+        cat > .env << EOF
+        # 全局设置
+        OUTPUT_DIR=calendar_events
+        TIMEOUT=30
+
+        # 钉钉账号配置
+        DINGTALK_ACCOUNT_NAME=${{ secrets.DINGTALK_ACCOUNT_NAME }}
+        DINGTALK_USERNAME=${{ secrets.DINGTALK_USERNAME }}
+        DINGTALK_PASSWORD=${{ secrets.DINGTALK_PASSWORD }}
+        DINGTALK_URL=${{ secrets.DINGTALK_URL }}
+
+        # 腾讯会议账号配置
+        TENCENT_ACCOUNT_NAME=${{ secrets.TENCENT_ACCOUNT_NAME }}
+        TENCENT_USERNAME=${{ secrets.TENCENT_USERNAME }}
+        TENCENT_PASSWORD=${{ secrets.TENCENT_PASSWORD }}
+        TENCENT_URL=${{ secrets.TENCENT_URL }}
+        EOF
+
+    - name: 列出配置的账号
+      run: |
+        echo "=== 检查账号配置 ==="
+        python main.py --list
+
+    - name: 执行日历同步
+      run: |
+        echo "=== 开始日历同步 ==="
+        if [ "${{ github.event.inputs.sync_type }}" = "dingtalk" ]; then
+          echo "同步钉钉账号..."
+          python main.py --sync-type dingtalk
+        elif [ "${{ github.event.inputs.sync_type }}" = "tencent" ]; then
+          echo "同步腾讯会议账号..."
+          python main.py --sync-type tencent
+        else
+          echo "同步所有账号..."
+          python main.py --sync-all
+        fi
+
+    - name: 合并ICS文件
+      run: |
+        echo "=== 开始合并ICS文件 ==="
+        # 按类型合并
+        python main.py --merge-type dingtalk || echo "钉钉合并失败或无数据"
+        python main.py --merge-type tencent || echo "腾讯会议合并失败或无数据"
+
+        # 全局合并
+        python main.py --merge-all
+
+    - name: 清理临时文件
+      run: |
+        echo "=== 清理临时文件 ==="
+        CLEANUP_DAYS="${{ github.event.inputs.cleanup_days }}"
+        if [ -z "$CLEANUP_DAYS" ]; then
+          CLEANUP_DAYS=7
+        fi
+        python main.py --cleanup $CLEANUP_DAYS
+
+    - name: 检查生成的文件
+      run: |
+        echo "=== 检查生成的文件 ==="
+        echo "Public 目录内容:"
+        ls -la public/ || echo "public 目录为空或不存在"
+
+        echo "Merged 目录内容:"
+        ls -la merged/ || echo "merged 目录为空或不存在"
+
+        echo "事件目录:"
+        ls -la *_events_* || echo "没有事件目录"
+
+    - name: 准备 GitHub Pages 内容
+      run: |
+        echo "=== 准备 GitHub Pages 内容 ==="
+
+        # 创建 GitHub Pages 根目录
+        mkdir -p _site
+
+        # 复制 public 目录下的所有文件到 _site
+        if [ -d "public" ] && [ "$(ls -A public)" ]; then
+          cp -r public/* _site/
+          echo "已复制 public 目录内容到 _site"
+        else
+          echo "public 目录为空，创建默认页面"
+          echo "<h1>CalDAV 同步工具</h1><p>暂无日历数据</p>" > _site/index.html
+        fi
+
+        # 复制 merged 目录到 _site/merged（可选）
+        if [ -d "merged" ] && [ "$(ls -A merged)" ]; then
+          mkdir -p _site/merged
+          cp -r merged/* _site/merged/
+          echo "已复制 merged 目录内容"
+        fi
+
+        # 创建简单的索引页面
+        cat > _site/index.html << 'EOF'
+        <!DOCTYPE html>
+        <html lang="zh-CN">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>CalDAV 同步工具 - 日历文件</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 40px; }
+                .container { max-width: 800px; margin: 0 auto; }
+                .file-list { list-style: none; padding: 0; }
+                .file-list li { margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 5px; }
+                .file-list a { text-decoration: none; color: #0066cc; font-weight: bold; }
+                .file-list a:hover { text-decoration: underline; }
+                .timestamp { color: #666; font-size: 0.9em; }
+                .description { color: #333; margin-top: 5px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>📅 CalDAV 同步工具 - 日历文件</h1>
+                <p>这里是自动同步的日历文件，包含钉钉和腾讯会议的日历数据。</p>
+
+                <h2>🌐 合并日历文件</h2>
+                <ul class="file-list" id="calendar-files">
+                    <!-- 文件列表将通过 JavaScript 动态生成 -->
+                </ul>
+
+                <h2>📋 按类型分类的日历文件</h2>
+                <ul class="file-list" id="merged-files">
+                    <!-- 分类文件列表将通过 JavaScript 动态生成 -->
+                </ul>
+
+                <div class="timestamp">
+                    <p>最后更新时间: <span id="update-time"></span></p>
+                    <p>由 GitHub Actions 自动生成</p>
+                </div>
+            </div>
+
+            <script>
+                // 设置更新时间
+                document.getElementById('update-time').textContent = new Date().toLocaleString('zh-CN');
+
+                // 动态加载文件列表
+                async function loadFileList() {
+                    try {
+                        // 获取当前目录下的 .ics 文件
+                        const calendarFiles = document.getElementById('calendar-files');
+                        const mergedFiles = document.getElementById('merged-files');
+
+                        // 这里可以根据实际生成的文件名来更新
+                        // 由于是静态页面，我们使用预定义的模式
+
+                        // 检查是否有全局合并文件
+                        const response = await fetch('./');
+                        const text = await response.text();
+
+                        // 简单的文件检测（实际部署时可能需要更复杂的逻辑）
+                        if (text.includes('all_calendars_')) {
+                            const matches = text.match(/all_calendars_\d{8}_\d{6}\.ics/g);
+                            if (matches) {
+                                matches.forEach(filename => {
+                                    const li = document.createElement('li');
+                                    li.innerHTML = `
+                                        <a href="./${filename}" download>${filename}</a>
+                                        <div class="description">包含所有账号的合并日历数据</div>
+                                    `;
+                                    calendarFiles.appendChild(li);
+                                });
+                            }
+                        }
+
+                    } catch (error) {
+                        console.log('无法动态加载文件列表，使用静态内容');
+                        document.getElementById('calendar-files').innerHTML =
+                            '<li>请检查是否有 .ics 文件生成</li>';
+                    }
+                }
+
+                // 页面加载完成后执行
+                document.addEventListener('DOMContentLoaded', loadFileList);
+            </script>
+        </body>
+        </html>
+        EOF
+
+        echo "GitHub Pages 内容准备完成"
+        ls -la _site/
+
+    - name: 设置 GitHub Pages
+      uses: actions/configure-pages@v3
+
+    - name: 上传 GitHub Pages 内容
+      uses: actions/upload-pages-artifact@v2
+      with:
+        path: '_site'
+
+    - name: 部署到 GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v2
+
+    - name: 输出部署结果
+      run: |
+        echo "=== 部署完成 ==="
+        echo "GitHub Pages URL: ${{ steps.deployment.outputs.page_url }}"
+        echo "部署状态: 成功"
+
+        # 显示最终的文件统计
+        echo "=== 文件统计 ==="
+        echo "Public 文件数量: $(find _site -name '*.ics' | wc -l)"
+        echo "总文件大小: $(du -sh _site | cut -f1)"

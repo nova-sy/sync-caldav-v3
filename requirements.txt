@@ -1,0 +1,24 @@
+# CalDAV 同步工具依赖包
+
+# CalDAV 库
+caldav==2.0.1
+
+# HTTP 请求库
+requests==2.31.0
+
+# XML 解析（Python 标准库，但列出以供参考）
+# xml.etree.ElementTree - 标准库
+
+# 日期时间处理（Python 标准库）
+# datetime - 标准库
+
+# 文件系统操作（Python 标准库）
+# os - 标准库
+
+# 配置文件解析（Python 标准库）
+# configparser - 标准库
+
+# 开发和调试工具（可选）
+# flake8==6.0.0
+# black==23.0.0
+# pytest==7.4.0

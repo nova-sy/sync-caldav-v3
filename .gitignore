@@ -1,0 +1,94 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Output Files
+output/
+dingtalk_events/
+tencent_events/
+caldav_events/
+caldav_hybrid_events/
+
+# XML Response Files
+*.xml
+collections_discovery.xml
+tencent_collections_discovery.xml
+events_*.xml
+tencent_events_*.xml
+http_events_*.xml
+propfind_response.xml
+report_response.xml
+wellknown_response.xml
+calendar_home_response.xml
+calendars_discovery.xml
+
+# ICS Files
+*.ics
+
+# Configuration Files (uncomment if you want to ignore config files)
+# config.ini
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary Files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Test Files
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Documentation
+docs/_build/
