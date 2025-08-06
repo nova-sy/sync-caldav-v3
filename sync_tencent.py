@@ -17,13 +17,18 @@ from ics_merger import ICSMerger
 class TencentCalDAVSync:
     """腾讯会议 CalDAV 同步处理器"""
 
-    def __init__(self, account: CalDAVAccount):
+    def __init__(self, account: CalDAVAccount, config: dict = None):
         self.account = account
         self.base_url = account.get_formatted_url()
         self.username = account.username
         self.password = account.password
         self.output_dir = f"tencent_events_{self.username}"
         self.merger = ICSMerger()
+
+        # 从配置中获取时间范围，提供默认值
+        config = config or {}
+        self.sync_days_past = int(config.get('TENCENT_SYNC_DAYS_PAST') or 90)
+        self.sync_days_future = int(config.get('TENCENT_SYNC_DAYS_FUTURE') or 90)
 
     def discover_collections(self):
         """发现腾讯会议日历集合"""
@@ -125,99 +130,37 @@ class TencentCalDAVSync:
             print(f"XML 解析失败: {e}")
             return []
 
-    def get_event_list(self, collection_href):
-        """获取事件列表（第一步：PROPFIND）"""
+    def get_events_by_time_range(self, collection_href, display_name):
+        """使用 REPORT 请求按时间范围获取事件"""
 
-        print(f"\n=== 获取事件列表 ===")
-        print(f"集合 URL: {collection_href}")
+        print(f"\n=== 按时间范围获取事件 ===")
+        print(f"集合: {display_name} ({collection_href})")
 
-        propfind_body = '''<?xml version="1.0" encoding="utf-8" ?>
-<D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
-    <D:prop>
-        <D:getetag />
-        <D:getcontenttype />
-    </D:prop>
-</D:propfind>'''
+        # 计算时间范围
+        now = datetime.utcnow()
+        start_time = now - timedelta(days=self.sync_days_past)
+        end_time = now + timedelta(days=self.sync_days_future)
 
-        headers = {
-            'Content-Type': 'application/xml; charset=UTF-8',
-            'Depth': '1'
-        }
+        start_str = start_time.strftime("%Y%m%dT%H%M%SZ")
+        end_str = end_time.strftime("%Y%m%dT%H%M%SZ")
 
-        try:
-            response = requests.request(
-                'PROPFIND',
-                collection_href,
-                auth=HTTPBasicAuth(self.username, self.password),
-                headers=headers,
-                data=propfind_body,
-                timeout=10
-            )
+        print(f"时间范围: {start_time.strftime('%Y-%m-%d')} 到 {end_time.strftime('%Y-%m-%d')}")
+        print(f"({self.sync_days_past} 天前, {self.sync_days_future} 天后)")
 
-            print(f"HTTP 状态码: {response.status_code}")
-
-            if response.status_code == 207:
-                print("✅ 成功获取事件列表")
-
-                # 解析事件 URL 列表
-                event_urls = self.parse_event_urls(response.text)
-                print(f"找到 {len(event_urls)} 个事件")
-                return event_urls
-            else:
-                print(f"获取事件列表失败: {response.text[:200]}")
-                return []
-
-        except Exception as e:
-            print(f"获取事件列表异常: {e}")
-            return []
-
-    def parse_event_urls(self, xml_data):
-        """解析事件 URL 列表"""
-
-        event_urls = []
-
-        try:
-            root = ET.fromstring(xml_data)
-            namespaces = {'D': 'DAV:'}
-
-            for response_elem in root.findall('D:response', namespaces):
-                href_elem = response_elem.find('D:href', namespaces)
-                if href_elem is not None:
-                    href = href_elem.text
-
-                    # 检查是否是 .ics 文件
-                    if href.endswith('.ics'):
-                        event_urls.append(href)
-                        print(f"  事件: {href}")
-
-            return event_urls
-
-        except ET.ParseError as e:
-            print(f"XML 解析失败: {e}")
-            return []
-
-    def download_events(self, collection_href, event_urls, display_name):
-        """下载事件内容（第二步：calendar-multiget）"""
-
-        print(f"\n=== 下载事件内容 ===")
-        print(f"准备下载 {len(event_urls)} 个事件")
-
-        if not event_urls:
-            print("没有事件需要下载")
-            return []
-
-        # 构建 calendar-multiget 请求
-        href_elements = ""
-        for url in event_urls:
-            href_elements += f"    <D:href>{url}</D:href>\n"
-
-        multiget_body = f'''<?xml version="1.0" encoding="utf-8" ?>
-<C:calendar-multiget xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+        report_body = f'''<?xml version="1.0" encoding="utf-8" ?>
+<C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
     <D:prop>
         <D:getetag />
         <C:calendar-data />
     </D:prop>
-{href_elements}</C:calendar-multiget>'''
+    <C:filter>
+        <C:comp-filter name="VCALENDAR">
+            <C:comp-filter name="VEVENT">
+                <C:time-range start="{start_str}" end="{end_str}" />
+            </C:comp-filter>
+        </C:comp-filter>
+    </C:filter>
+</C:calendar-query>'''
 
         headers = {
             'Content-Type': 'application/xml; charset=UTF-8',
@@ -230,7 +173,7 @@ class TencentCalDAVSync:
                 collection_href,
                 auth=HTTPBasicAuth(self.username, self.password),
                 headers=headers,
-                data=multiget_body,
+                data=report_body,
                 timeout=30
             )
 
@@ -359,21 +302,12 @@ class TencentCalDAVSync:
             # 步骤2: 处理每个集合
             total_events = 0
             for collection in collections:
-                print(f"\n处理集合: {collection['name']}")
-
-                # 获取事件列表
-                event_urls = self.get_event_list(collection['href'])
-
-                if event_urls:
-                    # 下载事件内容
-                    events = self.download_events(
-                        collection['href'],
-                        event_urls,
-                        collection['name']
-                    )
+                # 使用新的 REPORT 方法获取事件
+                events = self.get_events_by_time_range(collection['href'], collection['name'])
+                if events:
                     total_events += len(events)
                 else:
-                    print(f"集合 '{collection['name']}' 中没有事件")
+                    print(f"集合 '{collection['name']}' 中没有符合时间范围的事件")
 
             print(f"\n🎉 腾讯会议同步完成！总共下载了 {total_events} 个事件")
             print(f"所有事件已保存到 {self.output_dir}/ 目录下")

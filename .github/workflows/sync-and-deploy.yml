@@ -74,12 +74,16 @@ jobs:
         DINGTALK_USERNAME=${{ secrets.DINGTALK_USERNAME }}
         DINGTALK_PASSWORD=${{ secrets.DINGTALK_PASSWORD }}
         DINGTALK_URL=${{ secrets.DINGTALK_URL }}
+        DINGTALK_SYNC_DAYS_PAST=${{ secrets.DINGTALK_SYNC_DAYS_PAST || 90 }}
+        DINGTALK_SYNC_DAYS_FUTURE=${{ secrets.DINGTALK_SYNC_DAYS_FUTURE || 90 }}
 
         # 腾讯会议账号配置
         TENCENT_ACCOUNT_NAME=${{ secrets.TENCENT_ACCOUNT_NAME }}
         TENCENT_USERNAME=${{ secrets.TENCENT_USERNAME }}
         TENCENT_PASSWORD=${{ secrets.TENCENT_PASSWORD }}
         TENCENT_URL=${{ secrets.TENCENT_URL }}
+        TENCENT_SYNC_DAYS_PAST=${{ secrets.TENCENT_SYNC_DAYS_PAST || 90 }}
+        TENCENT_SYNC_DAYS_FUTURE=${{ secrets.TENCENT_SYNC_DAYS_FUTURE || 90 }}
         EOF
 
     - name: 列出配置的账号

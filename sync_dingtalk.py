@@ -17,13 +17,18 @@ from ics_merger import ICSMerger
 class DingTalkCalDAVSync:
     """钉钉 CalDAV 同步处理器"""
 
-    def __init__(self, account: CalDAVAccount):
+    def __init__(self, account: CalDAVAccount, config: dict = None):
         self.account = account
         self.base_url = account.get_formatted_url()
         self.username = account.username
         self.password = account.password
         self.output_dir = f"dingtalk_events_{self.username}"
         self.merger = ICSMerger()
+
+        # 从配置中获取时间范围，提供默认值
+        config = config or {}
+        self.sync_days_past = int(config.get('DINGTALK_SYNC_DAYS_PAST') or 90)
+        self.sync_days_future = int(config.get('DINGTALK_SYNC_DAYS_FUTURE') or 90)
 
     def discover_collections(self):
         """发现钉钉日历集合"""
@@ -132,9 +137,15 @@ class DingTalkCalDAVSync:
 
         print(f"事件 URL: {events_url}")
 
-        # 设置时间范围（过去3个月到未来3个月）
-        start_date = datetime.now() - timedelta(days=90)
-        end_date = datetime.now() + timedelta(days=90)
+        # 计算时间范围
+        now = datetime.utcnow()
+        start_time = now - timedelta(days=self.sync_days_past)
+        end_time = now + timedelta(days=self.sync_days_future)
+        start_str = start_time.strftime("%Y%m%dT%H%M%SZ")
+        end_str = end_time.strftime("%Y%m%dT%H%M%SZ")
+
+        print(f"时间范围: {start_time.strftime('%Y-%m-%d')} 到 {end_time.strftime('%Y-%m-%d')}")
+        print(f"({self.sync_days_past} 天前, {self.sync_days_future} 天后)")
 
         report_body = f'''<?xml version="1.0" encoding="utf-8" ?>
 <C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
@@ -145,8 +156,7 @@ class DingTalkCalDAVSync:
     <C:filter>
         <C:comp-filter name="VCALENDAR">
             <C:comp-filter name="VEVENT">
-                <C:time-range start="{start_date.strftime('%Y%m%dT%H%M%SZ')}"
-                             end="{end_date.strftime('%Y%m%dT%H%M%SZ')}" />
+                <C:time-range start="{start_str}" end="{end_str}" />
             </C:comp-filter>
         </C:comp-filter>
     </C:filter>

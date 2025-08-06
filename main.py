@@ -40,8 +40,17 @@ class CalDAVSyncManager:
             return False
 
         try:
+            # 准备特定于处理器的配置
+            handler_config = {}
+            if account.account_type == 'tencent':
+                handler_config['TENCENT_SYNC_DAYS_PAST'] = self.config_manager.get_global_config('TENCENT_SYNC_DAYS_PAST')
+                handler_config['TENCENT_SYNC_DAYS_FUTURE'] = self.config_manager.get_global_config('TENCENT_SYNC_DAYS_FUTURE')
+            elif account.account_type == 'dingtalk':
+                handler_config['DINGTALK_SYNC_DAYS_PAST'] = self.config_manager.get_global_config('DINGTALK_SYNC_DAYS_PAST')
+                handler_config['DINGTALK_SYNC_DAYS_FUTURE'] = self.config_manager.get_global_config('DINGTALK_SYNC_DAYS_FUTURE')
+
             # 创建同步处理器实例
-            sync_handler = handler_class(account)
+            sync_handler = handler_class(account, config=handler_config)
 
             # 执行同步
             result = sync_handler.sync()
