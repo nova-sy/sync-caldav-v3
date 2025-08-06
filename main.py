@@ -103,7 +103,9 @@ class CalDAVSyncManager:
         print(f"\n=== 开始按类型合并: {account_type} ===")
 
         try:
-            merged_file = self.merger.merge_by_account_type(account_type)
+            # 获取自定义文件名
+            custom_filename = self.config_manager.get_global_config('ICS_FILE_NAME')
+            merged_file = self.merger.merge_by_account_type(account_type, custom_filename)
             if merged_file:
                 print(f"✅ {account_type} 类型合并成功: {merged_file}")
                 return True
@@ -172,9 +174,10 @@ class CalDAVSyncManager:
                 account_types.add(account.account_type)
 
             merged_files = []
+            custom_filename = self.config_manager.get_global_config('ICS_FILE_NAME')
             for account_type in account_types:
                 print(f"  合并 {account_type} 类型...")
-                merged_file = self.merger.merge_by_account_type(account_type)
+                merged_file = self.merger.merge_by_account_type(account_type, custom_filename)
                 if merged_file:
                     merged_files.append(merged_file)
                     print(f"  ✅ {account_type} 合并成功: {merged_file}")

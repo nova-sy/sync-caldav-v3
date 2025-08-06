@@ -15,14 +15,12 @@ import re
 class ICSMerger:
     """ICS 文件合并处理器"""
 
-    def __init__(self, temp_dir: str = "temp", merged_dir: str = "merged", public_dir: str = "public"):
+    def __init__(self, temp_dir: str = "temp", public_dir: str = "public"):
         self.temp_dir = temp_dir
-        self.merged_dir = merged_dir
         self.public_dir = public_dir
 
         # 创建目录
         os.makedirs(self.temp_dir, exist_ok=True)
-        os.makedirs(self.merged_dir, exist_ok=True)
         os.makedirs(self.public_dir, exist_ok=True)
 
     def parse_ics_file(self, filepath: str) -> Dict:
@@ -152,7 +150,7 @@ class ICSMerger:
 
         return "\n".join(ics_content)
 
-    def merge_by_account_type(self, account_type: str) -> str:
+    def merge_by_account_type(self, account_type: str, custom_filename: str = None) -> str:
         """按账号类型合并ICS文件"""
 
         print(f"\n=== 按账号类型合并: {account_type} ===")
@@ -164,9 +162,16 @@ class ICSMerger:
             print(f"未找到 {account_type} 类型的ICS文件")
             return ""
 
+        # 清理同类型的旧文件
+        self.cleanup_public_files(f"{account_type}_*.ics")
+
         # 生成输出文件名
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_filename = os.path.join(self.merged_dir, f"{account_type}_merged_{timestamp}.ics")
+        if custom_filename:
+            filename_part = custom_filename
+        else:
+            filename_part = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        output_filename = os.path.join(self.public_dir, f"{account_type}_{filename_part}.ics")
 
         # 合并文件
         return self.merge_ics_files(
@@ -187,15 +192,16 @@ class ICSMerger:
             print("未找到任何ICS文件")
             return ""
 
-        # 清理 public 目录中的旧文件（只保留一个文件）
-        self.cleanup_public_files()
+        # 清理 public 目录中的旧文件
+        self.cleanup_public_files("all_calendars_*.ics")
 
         # 生成输出文件名
         if custom_filename:
-            output_filename = os.path.join(self.public_dir, f"all_calendars_{custom_filename}.ics")
+            filename_part = custom_filename
         else:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_filename = os.path.join(self.public_dir, f"all_calendars_{timestamp}.ics")
+            filename_part = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        output_filename = os.path.join(self.public_dir, f"all_calendars_{filename_part}.ics")
 
         # 合并文件
         return self.merge_ics_files(
@@ -204,14 +210,14 @@ class ICSMerger:
             "所有日历合并"
         )
 
-    def cleanup_public_files(self):
-        """清理 public 目录中的旧 ICS 文件，只保留最新的一个"""
+    def cleanup_public_files(self, pattern: str):
+        """清理 public 目录中符合特定模式的旧 ICS 文件"""
 
-        print("=== 清理 public 目录中的旧文件 ===")
+        print(f"=== 清理 public 目录中的旧文件 (模式: {pattern}) ===")
 
-        # 查找所有 all_calendars_*.ics 文件
-        pattern = os.path.join(self.public_dir, "all_calendars_*.ics")
-        existing_files = glob.glob(pattern)
+        # 查找所有匹配的文件
+        search_pattern = os.path.join(self.public_dir, pattern)
+        existing_files = glob.glob(search_pattern)
 
         if existing_files:
             print(f"找到 {len(existing_files)} 个现有文件，准备清理...")

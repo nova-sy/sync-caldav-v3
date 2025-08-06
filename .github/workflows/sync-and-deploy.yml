@@ -126,9 +126,6 @@ jobs:
         echo "Public 目录内容:"
         ls -la public/ || echo "public 目录为空或不存在"
 
-        echo "Merged 目录内容:"
-        ls -la merged/ || echo "merged 目录为空或不存在"
-
         echo "事件目录:"
         ls -la *_events_* || echo "没有事件目录"
 
@@ -148,14 +145,52 @@ jobs:
           echo "<h1>CalDAV 同步工具</h1><p>暂无日历数据</p>" > _site/index.html
         fi
 
-        # 复制 merged 目录到 _site/merged（可选）
-        if [ -d "merged" ] && [ "$(ls -A merged)" ]; then
-          mkdir -p _site/merged
-          cp -r merged/* _site/merged/
-          echo "已复制 merged 目录内容"
-        fi
+        # 生成文件列表 JSON
+        echo "=== 生成文件列表 JSON ==="
+        python3 << 'PYTHON'
+        import json
+        import os
+        import glob
+        from datetime import datetime
 
-        # 创建简单的索引页面
+        files_data = {
+            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "calendar_files": []
+        }
+
+        # 扫描 public 目录下的所有 .ics 文件
+        all_files = glob.glob("_site/*.ics")
+        for file_path in all_files:
+            filename = os.path.basename(file_path)
+            file_size = os.path.getsize(file_path)
+            file_mtime = os.path.getmtime(file_path)
+
+            description = "未知日历"
+            if filename.startswith("all_calendars_"):
+                description = "包含所有账号的合并日历数据"
+            elif filename.startswith("dingtalk_"):
+                description = "仅包含钉钉日历数据"
+            elif filename.startswith("tencent_"):
+                description = "仅包含腾讯会议日历数据"
+
+            files_data["calendar_files"].append({
+                "filename": filename,
+                "size": file_size,
+                "modified": datetime.fromtimestamp(file_mtime).isoformat() + "Z",
+                "description": description
+            })
+
+        # 按文件名排序，all_calendars 开头的排在最前面
+        files_data["calendar_files"].sort(key=lambda x: (not x['filename'].startswith('all_calendars_'), x['filename']))
+
+        # 保存 JSON 文件
+        with open("_site/files.json", "w", encoding="utf-8") as f:
+            json.dump(files_data, f, ensure_ascii=False, indent=2)
+
+        print(f"✅ 生成文件列表: {len(files_data['calendar_files'])} 个日历文件")
+        PYTHON
+
+        # 创建新的索引页面
         cat > _site/index.html << 'EOF'
         <!DOCTYPE html>
         <html lang="zh-CN">
@@ -164,78 +199,162 @@ jobs:
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>CalDAV 同步工具 - 日历文件</title>
             <style>
-                body { font-family: Arial, sans-serif; margin: 40px; }
-                .container { max-width: 800px; margin: 0 auto; }
-                .file-list { list-style: none; padding: 0; }
-                .file-list li { margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 5px; }
-                .file-list a { text-decoration: none; color: #0066cc; font-weight: bold; }
-                .file-list a:hover { text-decoration: underline; }
-                .timestamp { color: #666; font-size: 0.9em; }
-                .description { color: #333; margin-top: 5px; }
+                * { box-sizing: border-box; }
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    margin: 0;
+                    padding: 20px;
+                    background: #f0f2f5;
+                    color: #333;
+                }
+                .container {
+                    max-width: 900px;
+                    margin: 20px auto;
+                    background: white;
+                    padding: 20px 40px;
+                    border-radius: 12px;
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+                }
+                .header {
+                    text-align: center;
+                    margin-bottom: 30px;
+                    padding-bottom: 20px;
+                    border-bottom: 1px solid #e8e8e8;
+                }
+                h1 {
+                    color: #1f1f1f;
+                    margin: 0;
+                    font-size: 2em;
+                }
+                .subtitle {
+                    color: #595959;
+                    font-size: 1em;
+                    margin-top: 8px;
+                }
+                h2 {
+                    color: #333;
+                    margin: 30px 0 20px 0;
+                    font-size: 1.3em;
+                }
+                .file-grid {
+                    display: grid;
+                    gap: 15px;
+                }
+                .file-card {
+                    padding: 15px 20px;
+                    background: #fafafa;
+                    border-radius: 8px;
+                    border: 1px solid #d9d9d9;
+                    transition: all 0.2s ease-in-out;
+                }
+                .file-card:hover {
+                    border-color: #40a9ff;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.09);
+                }
+                .file-name a {
+                    font-weight: 500;
+                    font-size: 1.1em;
+                    color: #1890ff;
+                    text-decoration: none;
+                }
+                .file-name a:hover {
+                    text-decoration: underline;
+                }
+                .description {
+                    color: #595959;
+                    margin: 5px 0 10px 0;
+                    font-size: 0.9em;
+                }
+                .file-info {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    font-size: 0.85em;
+                    color: #8c8c8c;
+                }
+                .empty-state {
+                    text-align: center;
+                    padding: 40px;
+                    color: #8c8c8c;
+                    background: #fafafa;
+                    border-radius: 8px;
+                }
+                .footer {
+                    margin-top: 30px;
+                    padding-top: 20px;
+                    border-top: 1px solid #e8e8e8;
+                    text-align: center;
+                    color: #8c8c8c;
+                    font-size: 0.9em;
+                }
             </style>
         </head>
         <body>
             <div class="container">
-                <h1>📅 CalDAV 同步工具 - 日历文件</h1>
-                <p>这里是自动同步的日历文件，包含钉钉和腾讯会议的日历数据。</p>
+                <div class="header">
+                    <h1>📅 CalDAV 日历文件</h1>
+                    <div class="subtitle">由 CalDAV 同步工具自动生成</div>
+                </div>
 
-                <h2>🌐 合并日历文件</h2>
-                <ul class="file-list" id="calendar-files">
-                    <!-- 文件列表将通过 JavaScript 动态生成 -->
-                </ul>
+                <h2>所有日历文件</h2>
+                <div class="file-grid" id="calendar-files">
+                    <div class="loading">正在加载文件列表...</div>
+                </div>
 
-                <h2>📋 按类型分类的日历文件</h2>
-                <ul class="file-list" id="merged-files">
-                    <!-- 分类文件列表将通过 JavaScript 动态生成 -->
-                </ul>
-
-                <div class="timestamp">
-                    <p>最后更新时间: <span id="update-time"></span></p>
-                    <p>由 GitHub Actions 自动生成</p>
+                <div class="footer">
+                    <p>最后更新于: <span id="update-time"></span></p>
                 </div>
             </div>
 
             <script>
-                // 设置更新时间
-                document.getElementById('update-time').textContent = new Date().toLocaleString('zh-CN');
+                function formatFileSize(bytes) {
+                    if (bytes === 0) return '0 B';
+                    const k = 1024;
+                    const sizes = ['B', 'KB', 'MB', 'GB'];
+                    const i = Math.floor(Math.log(bytes) / Math.log(k));
+                    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+                }
 
-                // 动态加载文件列表
+                function formatDate(dateString) {
+                    const date = new Date(dateString);
+                    return date.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }).replace(/\//g, '-');
+                }
+
+                function createFileCard(file) {
+                    return `
+                        <div class="file-card">
+                            <div class="file-name">
+                                <a href="./${file.filename}" download>${file.filename}</a>
+                            </div>
+                            <div class="description">${file.description}</div>
+                            <div class="file-info">
+                                <span>${formatDate(file.modified)}</span>
+                                <span>${formatFileSize(file.size)}</span>
+                            </div>
+                        </div>
+                    `;
+                }
+
                 async function loadFileList() {
+                    const container = document.getElementById('calendar-files');
                     try {
-                        // 获取当前目录下的 .ics 文件
-                        const calendarFiles = document.getElementById('calendar-files');
-                        const mergedFiles = document.getElementById('merged-files');
+                        const response = await fetch('./files.json?cache_bust=' + new Date().getTime());
+                        if (!response.ok) throw new Error('Network response was not ok');
+                        const data = await response.json();
 
-                        // 这里可以根据实际生成的文件名来更新
-                        // 由于是静态页面，我们使用预定义的模式
+                        document.getElementById('update-time').textContent = formatDate(data.generated_at);
 
-                        // 检查是否有全局合并文件
-                        const response = await fetch('./');
-                        const text = await response.text();
-
-                        // 简单的文件检测（实际部署时可能需要更复杂的逻辑）
-                        if (text.includes('all_calendars_')) {
-                            const matches = text.match(/all_calendars_\d{8}_\d{6}\.ics/g);
-                            if (matches) {
-                                matches.forEach(filename => {
-                                    const li = document.createElement('li');
-                                    li.innerHTML = `
-                                        <a href="./${filename}" download>${filename}</a>
-                                        <div class="description">包含所有账号的合并日历数据</div>
-                                    `;
-                                    calendarFiles.appendChild(li);
-                                });
-                            }
+                        if (data.calendar_files && data.calendar_files.length > 0) {
+                            container.innerHTML = data.calendar_files.map(createFileCard).join('');
+                        } else {
+                            container.innerHTML = '<div class="empty-state">暂无日历文件。</div>';
                         }
-
                     } catch (error) {
-                        console.log('无法动态加载文件列表，使用静态内容');
-                        document.getElementById('calendar-files').innerHTML =
-                            '<li>请检查是否有 .ics 文件生成</li>';
+                        console.error('加载文件列表失败:', error);
+                        container.innerHTML = '<div class="empty-state">无法加载文件列表，请稍后重试。</div>';
                     }
                 }
 
-                // 页面加载完成后执行
                 document.addEventListener('DOMContentLoaded', loadFileList);
             </script>
         </body>

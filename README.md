@@ -27,8 +27,7 @@ sync-caldav-v3/
 ├── ics_merger.py           # ICS文件合并工具
 ├── requirements.txt        # 依赖包列表
 ├── temp/                   # XML临时文件目录
-├── merged/                 # 按类型合并的ICS文件
-├── public/                 # 全局合并的ICS文件
+├── public/                 # 所有合并后的ICS文件
 ├── {service}_events_{user}/# 各服务的事件目录
 ├── .vscode/               # VSCode 调试配置
 │   ├── launch.json
@@ -232,12 +231,10 @@ class CalDAVAccount:
 
 ### 合并文件结构
 ```
-merged/                     # 按类型合并
-├── dingtalk_merged_20250806_100754.ics
-└── tencent_merged_20250806_100754.ics
-
-public/                     # 全局合并
-└── all_calendars_20250806_100807.ics
+public/                     # 所有合并后的ICS文件
+├── all_calendars_latest.ics
+├── dingtalk_latest.ics
+└── tencent_latest.ics
 
 temp/                       # 临时XML文件
 ├── dingtalk_collections_username.xml
@@ -321,15 +318,16 @@ python ics_merger.py
 - **自动更新**: 每次同步完成后自动更新页面内容
 
 ### 页面功能
-- 📋 **文件列表**: 显示所有可下载的 ICS 文件
-- 📊 **文件信息**: 显示文件大小、修改时间等详细信息
-- 🎨 **响应式设计**: 支持桌面和移动设备访问
-- 🔄 **动态加载**: 自动检测和显示最新生成的文件
+- 📋 **统一文件列表**: 在一个页面中显示所有合并后的日历文件。
+- 📊 **文件信息**: 清晰展示文件大小、修改时间等详细信息。
+- 🎨 **响应式设计**: 自动适应桌面和移动设备访问。
+- 🔄 **动态加载**: 通过 `files.json` 动态加载文件列表，确保信息最新。
 
 ### 文件组织
-- **全局合并文件**: `all_calendars_YYYYMMDD_HHMMSS.ics`
-- **按类型分类**: `dingtalk_merged_*.ics`, `tencent_merged_*.ics`
-- **直接下载**: 点击文件名即可下载到本地
+所有合并后的文件都位于 `public` 目录，并可通过 `ICS_FILE_NAME` 变量控制文件名后缀。
+- **全局合并文件**: `all_calendars_[ICS_FILE_NAME].ics`
+- **按类型合并**: `dingtalk_[ICS_FILE_NAME].ics`, `tencent_[ICS_FILE_NAME].ics`
+- **直接下载**: 点击文件名即可下载到本地。
 
 ## 📈 版本历史
 
