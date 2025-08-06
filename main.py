@@ -120,7 +120,9 @@ class CalDAVSyncManager:
         print(f"\n=== 开始合并所有账号 ===")
 
         try:
-            merged_file = self.merger.merge_all_accounts()
+            # 获取自定义文件名
+            custom_filename = self.config_manager.get_global_config('ICS_FILE_NAME')
+            merged_file = self.merger.merge_all_accounts(custom_filename)
             if merged_file:
                 print(f"✅ 所有账号合并成功: {merged_file}")
                 return True
@@ -184,7 +186,9 @@ class CalDAVSyncManager:
 
             # 步骤3: 全局合并
             print(f"\n🌐 步骤3: 全局合并所有账号")
-            global_merged_file = self.merger.merge_all_accounts()
+            # 获取自定义文件名
+            custom_filename = self.config_manager.get_global_config('ICS_FILE_NAME')
+            global_merged_file = self.merger.merge_all_accounts(custom_filename)
             if global_merged_file:
                 print(f"✅ 步骤3完成: 全局合并成功 -> {global_merged_file}")
             else:

@@ -175,7 +175,7 @@ class ICSMerger:
             f"{account_type.upper()} 合并日历"
         )
 
-    def merge_all_accounts(self) -> str:
+    def merge_all_accounts(self, custom_filename: str = None) -> str:
         """合并所有账号的ICS文件"""
 
         print(f"\n=== 合并所有账号 ===")
@@ -187,9 +187,15 @@ class ICSMerger:
             print("未找到任何ICS文件")
             return ""
 
+        # 清理 public 目录中的旧文件（只保留一个文件）
+        self.cleanup_public_files()
+
         # 生成输出文件名
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_filename = os.path.join(self.public_dir, f"all_calendars_{timestamp}.ics")
+        if custom_filename:
+            output_filename = os.path.join(self.public_dir, f"all_calendars_{custom_filename}.ics")
+        else:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_filename = os.path.join(self.public_dir, f"all_calendars_{timestamp}.ics")
 
         # 合并文件
         return self.merge_ics_files(
@@ -197,6 +203,26 @@ class ICSMerger:
             output_filename,
             "所有日历合并"
         )
+
+    def cleanup_public_files(self):
+        """清理 public 目录中的旧 ICS 文件，只保留最新的一个"""
+
+        print("=== 清理 public 目录中的旧文件 ===")
+
+        # 查找所有 all_calendars_*.ics 文件
+        pattern = os.path.join(self.public_dir, "all_calendars_*.ics")
+        existing_files = glob.glob(pattern)
+
+        if existing_files:
+            print(f"找到 {len(existing_files)} 个现有文件，准备清理...")
+            for file_path in existing_files:
+                try:
+                    os.remove(file_path)
+                    print(f"删除旧文件: {os.path.basename(file_path)}")
+                except Exception as e:
+                    print(f"删除文件失败 {file_path}: {e}")
+        else:
+            print("未找到需要清理的文件")
 
     def get_temp_xml_path(self, service: str, username: str, file_type: str) -> str:
         """获取临时XML文件路径"""
